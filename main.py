@@ -3,20 +3,24 @@ import pygame
 import random
 import numpy
 import threading
-from tkinter import *
-from thing import *
-from bodypart import *
-from creature import *
+#from tkinter import *
+from thing import plant
+#from bodypart import *
+from creature import creature
+from world import World
 
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 720
 
-display = pygame.display.set_mode((1280,720))
+display = pygame.display.set_mode((WINDOW_WIDTH,WINDOW_HEIGHT))
 clock = pygame.time.Clock()
 
-objects = []
-prev = {}
-alive = {}
-update = True
+#objects = []
+#prev = {}
+#alive = {}
+#update = True
 
+"""
 def stopUpdate():
     global update
     update = False
@@ -33,12 +37,12 @@ def setColor(r):
     def func():
         creature.highlight = r if creature.highlight != r else None
     return func
-    
+"""    
 
-main = Tk()
-widgets = [Button(main, text="Pause", command=stopUpdate)]
-widgets[0].grid()
-
+#main = Tk()
+#widgets = [Button(main, text="Pause", command=stopUpdate)]
+#widgets[0].grid()
+"""
 def updateTk():
     rs = ""
     
@@ -143,13 +147,27 @@ def updateTk():
     w = bbox[2]-bbox[1]
     
     canvas.config(scrollregion = bbox, width=w, height=400)
-
+"""
 
 running = True
+world = World(WINDOW_WIDTH, WINDOW_HEIGHT)
 for _ in range(10):
-    objects.append(creature())
+    world.add_thing(creature(world))
 for _ in range(20):
-    objects.append(plant())
+    world.add_thing(plant(world))
+
+drawThread = threading.Thread(target=world.draw, args=(display,))
+drawThread.start()
+
+while running:
+    world.update()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+world.running = False
+drawThread.join()
+"""
 while running:
     try:
         main.update()
@@ -167,7 +185,7 @@ while running:
             if update:
                 obj.update(objects)
                 if type(obj) == creature:
-                    if obj.race in alive.keys():
+                    if obj.race in alive:
                         alive[obj.race] += 1
                     else:
                         alive[obj.race] = 1
@@ -181,6 +199,5 @@ while running:
         
     pygame.display.update()
     #clock.tick(60)
-
-pygame.quit()
 main.quit()
+"""

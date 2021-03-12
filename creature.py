@@ -2,7 +2,7 @@ import math
 import random
 import pygame
 import numpy
-from thing import *
+from thing import thing, corpse
 from bodypart import *
 
 
@@ -10,8 +10,8 @@ class creature(thing):
     raceCount = 1
     races = {}
     highlight = None
-    def __init__(self, x=0, y=0, parent = None, timer = 0, mutate = True):
-        super().__init__(x,y)
+    def __init__(self, world, x=0, y=0, parent = None, timer = 0, mutate = True):
+        super().__init__(world,x,y)
         self.energy = 1.0
         self.hp = 1.0
         self.target = None
@@ -36,7 +36,7 @@ class creature(thing):
                 self.race += "-"+str(creature.raceCount)
                 creature.raceCount += 1
                 canGrowLimb = True
-                for i in range(int(math.ceil(parent.atr['mut']/roll))):
+                for _ in range(int(math.ceil(parent.atr['mut']/roll))):
                     if canGrowLimb and random.random() < parent.atr['mut']:
                         #grows a new limb
                         part = random.choice(list(self.parts.keys()))
@@ -78,7 +78,7 @@ class creature(thing):
                             if atribute != 'stom':
                                 self.atr[atribute] = min(1, self.atr[atribute])
                             #print("A " + atribute + " atribute has changed by: " + str(delta) + " for race " + str(self.race))
-                self.races[self.race] = creature(parent=self, mutate = False)
+                self.races[self.race] = creature(self.world,parent=self, mutate = False)
         else:
             self.race = str(creature.raceCount)
             creature.raceCount += 1
@@ -95,7 +95,7 @@ class creature(thing):
                 'stom': random.random()*2,
                 'mut': .05
             }
-            self.races[self.race] = creature(parent=self, mutate = False)
+            self.races[self.race] = creature(self.world, parent=self, mutate = False)
     def draw(self, display):
         #if self.target:
             #pygame.draw.line(display, (255,0,0), (int(self.x),int(self.y)), (int(self.target.x), int(self.target.y)))
@@ -150,30 +150,27 @@ class creature(thing):
         
     def isVisible(self, obj):
         return self.distance(obj) - obj.size - self.size < self.getTrait('per')
-    def spawn(self, objects):
-        objects.append(creature(self.x,self.y,self, 60))
+    def spawn(self):
+        self.world.add_thing(creature(self.world,self.x,self.y,self, 60))
     
-    def getTarget(self, objects, reached = False, capped = False):
-        visible = [i for i in objects if self.isVisible(i)]
+    def getTarget(self, reached = False, capped = False):
+        visible = [i for i in self.world.getVisible(self)]
         food = []
         others = []
         for i in visible:
             if i.isFood():
                 food.append(i)
-            elif i != self:
+            elif i != self and type(i) == creature:
                 others.append(i)        
-        
-        if not self.target in objects and type(self.target) != thing: #remove targets that don't exist, unless they are a random destination
-            self.target = None
         
         if self.energy > self.atr['stom']: #check if the creature has excess energy
             if self.nest:
                 if not self.target:
                     sight = self.getTrait('per')
                     deltaX = random.randint(int(-sight),int(sight))
-                    diff = math.sqrt(sight**2 - deltaX**2)
-                    deltaY = random.randint(int(-diff), int(diff))
-                    self.target = thing(self.x + deltaX, self.y + deltaY)
+                    deltaY = random.randint(int(-sight), int(sight))
+                    self.target = thing(self.world,max(1, self.x + deltaX), max(1,self.y + deltaY))
+                    #print('(',self.x,',', self.y ,') -> (',self.target.x, ',', self.target.y,')', sight)
             elif self.getHealth() < 1:
                 self.target = self
         else:
@@ -237,8 +234,6 @@ class creature(thing):
                             healthMult = self.getHealth() / healthiest
                             if sizeMult * strMult * healthMult < self.atr['fear']: #if a creature is scary to the creature
                                 if self.fleeing != close:
-                                    self.color = (0,0,255)
-                                    close.color = (255,0,255)
                                     self.fleeing = close
                                     
                                     speed = self.getTrait('per')
@@ -246,7 +241,7 @@ class creature(thing):
                                     vY = close.y - self.y
                                     vX = close.x - self.x
                                     if vX == 0:
-                                        self.target = thing(self.x, self.y - speed*numpy.sign(vY))
+                                        self.target = thing(self.world, self.x, self.y - speed*numpy.sign(vY))
                                     else:
                                         degree = math.atan(abs(vY/vX))
                                         if vY < 0:
@@ -258,7 +253,7 @@ class creature(thing):
                                         
                                         degree += math.pi
                                         
-                                        self.target = thing(math.cos(degree) * speed, math.sin(degree) * speed)
+                                        self.target = thing(self.world, math.cos(degree) * speed, math.sin(degree) * speed)
                             else: #the creature will attempt to donate food
                                 close = self.closest(kin)
                                 if close:
@@ -271,16 +266,15 @@ class creature(thing):
                                     
                             
         if not self.target or reached: #the default case, if nothing else the creature will wander in a random direction
-            self.target = thing()
+            self.target = thing(self.world)
             self.fleeing = None
     
-    def die(self, objects):
-        objects.append(corpse(self.x,self.y,self.getMass()))
-        objects.remove(self)
-        del self
+    def die(self):
+        super().die()
+        self.world.add_thing(corpse(self.world,self.x,self.y,self.getMass()))
          
          
-    def hit(self, amount, objects):
+    def hit(self, amount):
         roll = random.random()
         size = 0
         mass = self.getMass()
@@ -308,7 +302,7 @@ class creature(thing):
         else:
             self.hp -= amount
             if self.hp <= 0:
-                self.die(objects)
+                self.die()
     
     def heal(self):
         #get injured parts
@@ -325,7 +319,7 @@ class creature(thing):
             amount = random.random() * .25 + .25
             repair.hp = min(repair.hp + amount, 1)
         
-    def update(self, objects):
+    def update(self):
         
         if self.timer>0:
             self.timer -= 1
@@ -333,24 +327,24 @@ class creature(thing):
         
         self.energy -= self.getUpkeep()
         if self.energy <= 0 or self.hp <= 0:
-            self.die(objects)
+            self.die()
             return        
         
-        self.getTarget(objects)
+        self.getTarget()
         if self.target == self:
             self.heal()
-            self.getTarget(objects, True)
+            self.getTarget(True)
         elif self.moveTo(self.target): 
             self.color = (255,255,255)
             #if the target has been reached
             if self.target.isFood():
-                self.energy += self.target.eat(objects)
+                self.energy += self.target.eat()
                 if random.random() < self.energy-1:
                     self.nest = True
                     self.target = None
-                    self.getTarget(objects, capped=True)
+                    self.getTarget(capped=True)
                 else:
-                    self.getTarget(objects)
+                    self.getTarget()
             elif type(self.target) == creature:
                 if self.donating:
                     amount = (self.energy - self.atr['stom']) * self.atr['com']
@@ -363,12 +357,12 @@ class creature(thing):
                     strAdv = self.getTrait('str') / strTotal if strTotal > 0 else 0
                     maxDamage = min(1, strAdv*sizeAdv)
                     dmg = random.uniform(0, maxDamage)
-                    self.target.hit(dmg, objects)
+                    self.target.hit(dmg)
             else:
                 if self.nest:
-                    self.spawn(objects)
+                    self.spawn()
                     self.energy -= .5
                     self.nest = False
-                self.getTarget(objects, True)
+                self.getTarget(True)
 
 
