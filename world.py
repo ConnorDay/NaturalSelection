@@ -67,7 +67,7 @@ class World:
         
         for race in alive:
             if not alive[race]:
-                self.event(f'Race {race} has gone extinct!')
+                self.event(f'Race ({race}) has gone extinct!')
         
         if not isExtinct:
             self.event("All races have gone extinct.")
@@ -82,7 +82,7 @@ class World:
             serialBody[part] = []
             for i in c.parts[part]:
                 serialBody[part].append(str(i))
-        self.event(f'A new race: {c.race} was evolved!',
+        self.event(f'A new race: ({c.race}) was evolved!',
             json.dumps({'Body Parts' : serialBody, 'Attributes' : c.atr})
         )
 

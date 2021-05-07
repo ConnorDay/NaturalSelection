@@ -88,7 +88,7 @@ class creature(thing):
                                 self.atr[atribute] = min(1, self.atr[atribute])
                             #print("A " + atribute + " atribute has changed by: " + str(delta) + " for race " + str(self.race))
                 self.world.addRace(self)
-            self.world.event(f'A new creature of race {self.race} was born!')
+            self.world.event(f'A new creature of race ({self.race}) was born!')
         else:
             self.race = str(creature.raceCount)
             creature.raceCount += 1
@@ -371,6 +371,13 @@ class creature(thing):
     
     def die(self):
         super().die()
+        reason = "unknown"
+        if self.energy <= 0:
+            reason = "starvation"
+        elif self.hp <= 0:
+            reason = "murdered"
+        
+        self.world.event(f"A creature of race ({self.race}) has died! Reason: {reason}")
         self.world.add_thing(corpse(self.world,self.x,self.y,self.getMass()))
          
          
