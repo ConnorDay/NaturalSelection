@@ -1,4 +1,5 @@
 from thing import thing
+from creature import creature
 import pygame
 import math
 class World:
@@ -12,6 +13,11 @@ class World:
         self.prev = {}
         self.paused = False
         self.running = True
+
+        self.races = {}
+        self.died = {}
+
+        self.tick = 0
     def add_thing( self, t : thing):
         self.objects[int(t.y//self.subdivisions)][int(t.x//self.subdivisions)].append(t)
     def draw(self, display):
@@ -27,6 +33,10 @@ class World:
         if self.paused:
             return
         toAdd = []
+        alive = {}
+
+        isExtinct = False
+
         for row in self.objects:
             for col in row:
                 toRemove = []
@@ -35,17 +45,50 @@ class World:
                         prevW = obj.x // self.subdivisions
                         prevH = obj.y // self.subdivisions
                         obj.update()
+                        if type(obj) == creature:
+                            alive[obj.race] = True
+                            isExtinct = True
                         if obj.x // self.subdivisions != prevW or obj.y // self.subdivisions != prevH:
                             toRemove.append(obj)
                             toAdd.append(obj)
                     else:
                         toRemove.append(obj)
+                        if type(obj) == creature:
+                            if obj.race not in alive:
+                                alive[obj.race] = False
                         continue
                 for rem in toRemove:
                     col.remove(rem)
         for a in toAdd:
             self.add_thing(a)
+        
+        for race in alive:
+            if not alive[race]:
+                self.event(f'Race {race} has gone extinct!')
+        
+        if not isExtinct:
+            self.event("All races have gone extinct.")
+            self.running = False
+        self.died = {}
+        self.tick += 1
+    
+    def addRace(self, c):
+        self.races[c.race] = creature(self, parent=c, mutate=False)
+        self.event(f'A new race: {c.race} was evolved!',
+            '\nBody Parts:',
+            '\n\t' + '\n\t'.join([str(i) for i in c.parts['spd']]),
+            '\n\t' + '\n\t'.join([str(i) for i in c.parts['str']]),
+            '\n\t' + '\n\t'.join([str(i) for i in c.parts['per']]),
+            '\nAttributes:',
+            f'\n\tAggression: {c.atr["agr"]}',
+            f'\n\tFear: {c.atr["fear"]}',
+            f'\n\tCompassion: {c.atr["com"]}',
+            f'\n\tStomach: {c.atr["stom"]}',
+            f'\n\tMutability: {c.atr["mut"]}'
+        )
 
+    def event(self, *args):
+        print(f'[{self.tick}]', *args)
 
     def getVisible(self, obj):
         per = max(1,obj.getTrait("per")) ** 2

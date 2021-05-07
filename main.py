@@ -149,7 +149,6 @@ def updateTk():
     canvas.config(scrollregion = bbox, width=w, height=400)
 """
 
-running = True
 world = World(WINDOW_WIDTH, WINDOW_HEIGHT)
 for _ in range(10):
     world.add_thing(creature(world))
@@ -159,13 +158,14 @@ for _ in range(10):
 drawThread = threading.Thread(target=world.draw, args=(display,))
 drawThread.start()
 
-while running:
+while world.running:
     world.update()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            world.running = False
 
 world.running = False
+world.event("Simulation Ended.")
 drawThread.join()
 """
 while running:

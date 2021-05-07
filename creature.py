@@ -8,7 +8,6 @@ from bodypart import *
 
 class creature(thing):
     raceCount = 1
-    races = {}
     highlight = None
     def __init__(self, world, x=0, y=0, parent = None, timer = 0, mutate = True):
         super().__init__(world,x,y)
@@ -88,7 +87,8 @@ class creature(thing):
                             if atribute != 'stom':
                                 self.atr[atribute] = min(1, self.atr[atribute])
                             #print("A " + atribute + " atribute has changed by: " + str(delta) + " for race " + str(self.race))
-                self.races[self.race] = creature(self.world,parent=self, mutate = False)
+                self.world.addRace(self)
+            self.world.event(f'A new creature of race {self.race} was born!')
         else:
             self.race = str(creature.raceCount)
             creature.raceCount += 1
@@ -105,7 +105,7 @@ class creature(thing):
                 'stom': random.random()*2,
                 'mut': .05
             }
-            self.races[self.race] = creature(self.world, parent=self, mutate = False)
+            self.world.addRace(self)
     def draw(self, display):
         #if self.target:
             #pygame.draw.line(display, (255,0,0), (int(self.x),int(self.y)), (int(self.target.x), int(self.target.y)))

@@ -14,6 +14,8 @@ class bodypart():
         b.size = self.size
         b.eff = self.eff
         return b
+    def __str__(self):
+        return f'{type(self).__name__}: ({self.getEff()}) efficiency. ({self.size}) size. ({self.getCost()}) cost.'
 
 class eyestalk(bodypart):
     def __init__(self):
