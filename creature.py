@@ -136,6 +136,8 @@ class creature(thing):
         return totalHP/parts
     def moveTo(self, obj):
         speed = self.getTrait('spd')
+        if self.donating: #If the creature is donating it gets a speed boost
+            speed *= 1.1
         
         reached = self.distance(obj) - obj.size - self.size < speed
         if reached:
