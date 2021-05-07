@@ -134,7 +134,7 @@ class creature(thing):
         vX = obj.x - self.x
         if vX == 0:
             self.y += speed * numpy.sign(vY)
-            return
+            return reached
         degree = math.atan(abs(vY/vX))
         if vY < 0:
             degree += math.pi
@@ -154,6 +154,10 @@ class creature(thing):
         self.world.add_thing(creature(self.world,self.x,self.y,self, 60))
     
     def getTarget(self, reached = False, capped = False):
+
+        if reached:
+            self.target = None
+
         visible = [i for i in self.world.getVisible(self)]
         food = []
         others = []
@@ -170,15 +174,20 @@ class creature(thing):
                     deltaX = random.randint(int(-sight),int(sight))
                     deltaY = random.randint(int(-sight), int(sight))
                     self.target = thing(self.world,max(1, self.x + deltaX), max(1,self.y + deltaY))
-                    #print('(',self.x,',', self.y ,') -> (',self.target.x, ',', self.target.y,')', sight)
+
+                    self.color = (255,20,147)
             elif self.getHealth() < 1:
                 self.target = self
+
+                self.color = (100, 140, 17)
         else:
             
             if food: #if food is availible, go to the closest source
                 close = self.closest(food)
                 if self.target != close:
                     self.target = close
+                
+                self.color = (128, 128, 128)
             else: #if no food is availible
                 if others:
                     if self.energy/self.atr['stom'] < self.atr['agr']: #The creature is maddened by hunger and attacks the closest creature
@@ -186,6 +195,8 @@ class creature(thing):
                         self.attacking = True
                         if self.target != close:
                             self.target = close
+                        
+                        self.color = (255, 0, 0)
                     else: #The creature will examine the other creatures for weaknesses
                         smallest = 10**10
                         weakest = 1.0
@@ -227,6 +238,8 @@ class creature(thing):
                         if sizeMult * strMult * healthMult < self.atr['agr']: #Stalk a weaker creature
                             if self.target != close:
                                 self.target = close
+                            
+                            self.color = ( 0, 0, 255 )
                         else: #The creature will try to distance itself from stronger creatures
                             close = self.closest(big)
                             sizeMult = self.size/biggest
@@ -254,6 +267,8 @@ class creature(thing):
                                         degree += math.pi
                                         
                                         self.target = thing(self.world, math.cos(degree) * speed, math.sin(degree) * speed)
+                                
+                                self.color = (160, 82, 45)
                             else: #the creature will attempt to donate food
                                 close = self.closest(kin)
                                 if close:
@@ -263,11 +278,14 @@ class creature(thing):
                                         if self.target != close:
                                             self.target = close
                                             self.donating = True
+                                        
+                                        self.color = (148, 0, 211)
                                     
                             
-        if not self.target or reached: #the default case, if nothing else the creature will wander in a random direction
+        if not self.target: #the default case, if nothing else the creature will wander in a random direction
             self.target = thing(self.world)
             self.fleeing = None
+            self.color = (255, 255, 255)
     
     def die(self):
         super().die()
@@ -335,7 +353,6 @@ class creature(thing):
             self.heal()
             self.getTarget(True)
         elif self.moveTo(self.target): 
-            self.color = (255,255,255)
             #if the target has been reached
             if self.target.isFood():
                 self.energy += self.target.eat()

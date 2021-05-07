@@ -6,8 +6,8 @@ class thing():
     def __init__(self,world,x=0,y=0):
         x = 1280 if x > 1280 else x
         y = 720 if y > 720 else y
-        self.x = int(x) if x > 0 else random.randint(0,1280)
-        self.y = int(y) if y > 0 else random.randint(0,720)
+        self.x = int(x) if x > 0 else random.randint(1,1280)
+        self.y = int(y) if y > 0 else random.randint(1,720)
 
         world.running
         self.world = world
