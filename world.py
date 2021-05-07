@@ -2,6 +2,7 @@ from thing import thing
 from creature import creature
 import pygame
 import math
+import json
 class World:
     subdivisions = 100
     def __init__(self, w, h):
@@ -18,6 +19,8 @@ class World:
         self.died = {}
 
         self.tick = 0
+        
+        self.file = None
     def add_thing( self, t : thing):
         self.objects[int(t.y//self.subdivisions)][int(t.x//self.subdivisions)].append(t)
     def draw(self, display):
@@ -74,21 +77,19 @@ class World:
     
     def addRace(self, c):
         self.races[c.race] = creature(self, parent=c, mutate=False)
+        serialBody = {}
+        for part in c.parts:
+            serialBody[part] = []
+            for i in c.parts[part]:
+                serialBody[part].append(str(i))
         self.event(f'A new race: {c.race} was evolved!',
-            '\nBody Parts:',
-            '\n\t' + '\n\t'.join([str(i) for i in c.parts['spd']]),
-            '\n\t' + '\n\t'.join([str(i) for i in c.parts['str']]),
-            '\n\t' + '\n\t'.join([str(i) for i in c.parts['per']]),
-            '\nAttributes:',
-            f'\n\tAggression: {c.atr["agr"]}',
-            f'\n\tFear: {c.atr["fear"]}',
-            f'\n\tCompassion: {c.atr["com"]}',
-            f'\n\tStomach: {c.atr["stom"]}',
-            f'\n\tMutability: {c.atr["mut"]}'
+            json.dumps({'Body Parts' : serialBody, 'Attributes' : c.atr})
         )
 
     def event(self, *args):
         print(f'[{self.tick}]', *args)
+        if self.file:
+            self.file.write(' '.join(args) + "\n")
 
     def getVisible(self, obj):
         per = max(1,obj.getTrait("per")) ** 2
