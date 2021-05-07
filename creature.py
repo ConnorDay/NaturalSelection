@@ -21,6 +21,16 @@ class creature(thing):
         self.fleeing = None
         self.attacking = False
         self.donating = False
+        self.priorities = [
+            self.startNesting,
+            self.startHealing,
+            self.startDonating,
+            self.startEating,
+            self.startMaddened,
+            self.startHunting,
+            self.startFleeing
+        ]
+        random.shuffle(self.priorities)
         if parent:
             self.race = parent.race
             self.size = parent.size
@@ -116,12 +126,13 @@ class creature(thing):
         return sum([i.size for i in self.parts[trait]])
     def getMass(self):
         return self.getSize('spd') + self.getSize('per') + self.getSize('str') + self.size
-    
+    def getHunger(self):
+        return self.energy / self.atr['stom']
     def getHp(self, trait):
         return numpy.prod([i.hp for i in self.parts[trait]])
     def getHealth(self):
         totalHP = sum([self.getHp(i) for i in self.parts.keys()]) + self.hp
-        parts = sum(len(self.parts[i]) for i in self.parts.keys()) + 1
+        parts = len(self.parts.keys()) + 1
         return totalHP/parts
     def moveTo(self, obj):
         speed = self.getTrait('spd')
@@ -153,11 +164,189 @@ class creature(thing):
     def spawn(self):
         self.world.add_thing(creature(self.world,self.x,self.y,self, 60))
     
-    def getTarget(self, reached = False, capped = False):
+    def startNesting(self, food, others):
+        if self.getHunger() <= 1: #The creature is not full
+            return False
+        if not self.nest: #The creature is not nesting
+            return False
+        if not self.target: #If a target has not already been defined, define one
+            sight = self.getTrait('per')
+            deltaX = random.randint(int(-sight),int(sight))
+            deltaY = random.randint(int(-sight), int(sight))
+            self.target = thing(self.world,max(1, self.x + deltaX), max(1,self.y + deltaY))
 
-        if reached:
-            self.target = None
+            self.color = (255,20,147)
+        
+        return True
 
+    def startHealing(self, food, others):
+        if self.getHunger() <= 1: #The creature is not full
+            return False
+        if self.getHealth() == 1: #The creature does not need to heal
+            return False
+        
+        self.target = self
+        self.color = (100, 140, 17)
+
+        return True
+    
+    def startDonating(self, food, others):
+        if self.getHunger() <= 1: #The creature is not full
+            return False
+        if not others: #There are no other creatures around
+            return False
+
+        inNeed = []
+        for c in others:
+            if c.race != self.race: #if $c is not the same race as $self
+                continue
+            if c.getHunger() < self.atr['com']: #if $c is hungry enough
+                inNeed.append(c)
+            
+
+        if not inNeed: #There are no members of the same race within range that are hungry
+            return False
+
+        self.target = self.closest(inNeed)
+        self.donating = True
+        
+        self.color = (148, 0, 211)
+        return True
+
+    def startEating(self, food, others):
+        if self.getHunger() > 1: #The creature is already full
+            return False
+        if not food: #If the food list is empty (ie there is no food)
+            return False
+        
+        self.target = self.closest(food)
+        self.color = (128, 128, 128)
+        return True
+    
+    def startMaddened(self, food, others):
+        if self.getHunger() > 1: #The creature is already full
+            return False
+
+        if food: #There is already nearby food
+            return False
+        if not others: #There is nothing to hunt
+            return False
+        
+        if self.energy/self.atr['stom'] >= self.atr['agr']: #The creature is not hungry enough to be maddened
+            return False
+        
+        self.target = self.closest(others)
+        self.attacking = True
+        self.color = (255, 0, 0)
+        return True
+    
+    def startHunting(self, food, others):
+        if self.getHunger() > 1: #The creature is already full
+            return False
+        if food: #There is already food nearby
+            return False
+        if not others: #There is nothing to hunt
+            return False
+
+        #Generate $small
+        smallest = 10**100
+        small = []
+        for c in others:
+            s = c.getMass()
+            if s < smallest: #Reset $small if a new smallest is discovered
+                smallest = s
+                small = []
+            if s == smallest: #Append creature to small
+                small.append(c)
+        
+        #Generate $weak
+        weak = []
+        weakest = 1.0
+        for c in small:
+            h = c.getHealth()
+            if h < weakest:
+                weakest = h
+                weak = []
+            if h == weakest:
+                weak.append(c)
+        
+        #Check to see if $self wants to fight anything in $weak
+        sizeMult = smallest/self.getMass()
+        strMult = len(weak[0].parts['str'])/len(self.parts['str'])
+        healthMult = weakest / self.getHealth()
+        if sizeMult * strMult * healthMult >= self.atr['agr']: #Any creature in $weak is too strong to be hunted
+            return False
+
+        self.target = self.closest(weak)
+        self.color = ( 0, 0, 255 )
+        return True
+
+    def startFleeing(self, food, others):
+        if self.getHunger() > 1: #The creature is already full
+            return False
+        if food: #There is already food nearby
+            return False
+        if not others: #There is nothing to hunt
+            return False
+
+        #Generate $big
+        biggest = 0
+        big = []
+        for c in others:
+            s = c.getMass()
+            if s > biggest: #Reset $big if a new $biggest is discovered
+                biggest = s
+                big = []
+            if s == biggest: #Append creature to small
+                big.append(c)
+        
+        #Generate $big
+        strong = []
+        strongest = 0
+        for c in big:
+            h = c.getHealth()
+            if h > strongest:
+                strongest = h
+                strong = []
+            if h == strongest:
+                strong.append(c)
+        
+        #Check to see if $self is scared of anything in $big
+        sizeMult = biggest/self.getMass()
+        strMult = len(strong[0].parts['str'])/len(self.parts['str'])
+        healthMult = strongest / self.getHealth()
+        if sizeMult * strMult * healthMult >= self.atr['fear']: #Any creature in $weak is too strong to be hunted
+            return False
+        
+        close = self.closest(strong)
+        if self.fleeing != close: #Assign a spot to flee to from the closest creature
+            self.fleeing = close
+
+            speed = self.getTrait('per')
+
+            dy = close.y - self.y
+            dx = close.x - self.x
+            if dx == 0:
+                self.target = thing(self.world, self.x, self.y - speed * numpy.sign(dy))
+            else:
+                degree = math.atan(abs(dy/dx))
+                if dy < 0:
+                    degree += math.pi
+                    if dx > 0:
+                        degree = math.pi - degree
+                elif dx < 0:
+                    degree = math.pi - degree
+            
+            degree += math.pi
+            self.target = thing( self.world, math.cos(degree) * speed, math.sin(degree) * speed )
+
+        self.color = (160, 82, 45)
+        return True
+
+
+
+        
+    def getTarget(self):
         visible = [i for i in self.world.getVisible(self)]
         food = []
         others = []
@@ -166,122 +355,13 @@ class creature(thing):
                 food.append(i)
             elif i != self and type(i) == creature:
                 others.append(i)        
+
+        self.donating = False
+        self.attacking = False
+        for func in self.priorities: #Run through all the priorities for the creature and break when one finds and sets a target
+            if func(food, others):
+                break
         
-        if self.energy > self.atr['stom']: #check if the creature has excess energy
-            if self.nest:
-                if not self.target:
-                    sight = self.getTrait('per')
-                    deltaX = random.randint(int(-sight),int(sight))
-                    deltaY = random.randint(int(-sight), int(sight))
-                    self.target = thing(self.world,max(1, self.x + deltaX), max(1,self.y + deltaY))
-
-                    self.color = (255,20,147)
-            elif self.getHealth() < 1:
-                self.target = self
-
-                self.color = (100, 140, 17)
-        else:
-            
-            if food: #if food is availible, go to the closest source
-                close = self.closest(food)
-                if self.target != close:
-                    self.target = close
-                
-                self.color = (128, 128, 128)
-            else: #if no food is availible
-                if others:
-                    if self.energy/self.atr['stom'] < self.atr['agr']: #The creature is maddened by hunger and attacks the closest creature
-                        close = self.closest(others)
-                        self.attacking = True
-                        if self.target != close:
-                            self.target = close
-                        
-                        self.color = (255, 0, 0)
-                    else: #The creature will examine the other creatures for weaknesses
-                        smallest = 10**10
-                        weakest = 1.0
-                        small = []
-                        biggest = 0
-                        healthiest = 0
-                        big = []
-                        kin = []
-                        for c in others:
-                            h = c.getHealth()
-                            #generate $small
-                            if c.size < smallest:
-                                smallest = c.size
-                                small = []
-                            if c.size == smallest:
-                                if h < weakest:
-                                    small = []
-                                    weakest = h
-                                small.append(c)
-                            
-                            #generate $big
-                            if c.size > biggest:
-                                biggest = c.size
-                                big = []
-                            if c.size == biggest:
-                                if h > healthiest:
-                                    big = []
-                                    healthiest = h
-                                big.append(c)
-                            
-                            #generate $kin
-                            if c.race == self.race:
-                                kin.append(c)
-                                
-                        close = self.closest(small) #find the closest of the wounded small creatures
-                        sizeMult = smallest/self.size
-                        strMult = len(close.parts['str'])/len(self.parts['str'])
-                        healthMult = weakest / self.getHealth()
-                        if sizeMult * strMult * healthMult < self.atr['agr']: #Stalk a weaker creature
-                            if self.target != close:
-                                self.target = close
-                            
-                            self.color = ( 0, 0, 255 )
-                        else: #The creature will try to distance itself from stronger creatures
-                            close = self.closest(big)
-                            sizeMult = self.size/biggest
-                            strMult = len(self.parts['str'])/len(close.parts['str'])
-                            healthMult = self.getHealth() / healthiest
-                            if sizeMult * strMult * healthMult < self.atr['fear']: #if a creature is scary to the creature
-                                if self.fleeing != close:
-                                    self.fleeing = close
-                                    
-                                    speed = self.getTrait('per')
-                                    
-                                    vY = close.y - self.y
-                                    vX = close.x - self.x
-                                    if vX == 0:
-                                        self.target = thing(self.world, self.x, self.y - speed*numpy.sign(vY))
-                                    else:
-                                        degree = math.atan(abs(vY/vX))
-                                        if vY < 0:
-                                            degree += math.pi
-                                            if vX > 0:
-                                                degree = math.pi-degree
-                                        elif vX < 0:
-                                            degree = math.pi-degree
-                                        
-                                        degree += math.pi
-                                        
-                                        self.target = thing(self.world, math.cos(degree) * speed, math.sin(degree) * speed)
-                                
-                                self.color = (160, 82, 45)
-                            else: #the creature will attempt to donate food
-                                close = self.closest(kin)
-                                if close:
-                                    otherHung = close.energy/close.atr['stom']
-                                    selfHung = self.energy/self.atr['stom']
-                                    if otherHung/selfHung: #the creature will donate to $close
-                                        if self.target != close:
-                                            self.target = close
-                                            self.donating = True
-                                        
-                                        self.color = (148, 0, 211)
-                                    
-                            
         if not self.target: #the default case, if nothing else the creature will wander in a random direction
             self.target = thing(self.world)
             self.fleeing = None
@@ -324,6 +404,7 @@ class creature(thing):
     
     def heal(self):
         #get injured parts
+        before = self.getHealth()
         injured = []
         for trait in self.parts.keys():
             for part in self.parts[trait]:
@@ -332,6 +413,7 @@ class creature(thing):
         if self.hp < 1:
             injured.append(self)
         #randomly select one to heal
+        amount = 0
         if len(injured) > 0:
             repair = random.choice(injured)
             amount = random.random() * .25 + .25
@@ -339,7 +421,7 @@ class creature(thing):
         
     def update(self):
         
-        if self.timer>0:
+        if self.timer>0: #The creature is being born and cannot do anything
             self.timer -= 1
             return
         
@@ -351,13 +433,13 @@ class creature(thing):
         self.getTarget()
         if self.target == self:
             self.heal()
-            self.getTarget(True)
+            self.target = None
         elif self.moveTo(self.target): 
             #if the target has been reached
             if self.target.isFood():
                 self.energy += self.target.eat()
                 #check if the creature should try to nest
-                if random.random() < self.energy-1:
+                if random.random() < self.getHunger()-1:
                     otherCreatures = 0
                     for other in self.world.getVisible(self):
                         if type(other) == creature and other != self:
@@ -365,20 +447,16 @@ class creature(thing):
                     #check if there are too many creatures around $self
                     if otherCreatures <= self.getTrait('per') / 50:
                         self.nest = True
-                        self.target = None
-                        self.getTarget(capped=True)
-                else:
-                    self.getTarget()
             elif type(self.target) == creature:
-                if self.donating:
+                if self.donating: #Donate to the target
                     amount = (self.energy - self.atr['stom']) * self.atr['com']
                     self.energy -= amount
                     self.target.energy += amount
                     self.donating = False
-                else:
+                else: #Attack the target
                     strTotal = self.getTrait('str') + self.target.getTrait('str')
                     sizeAdv = self.target.getMass() / self.getMass()
-                    strAdv = self.getTrait('str') / strTotal if strTotal > 0 else 0
+                    strAdv = self.getTrait('str') / strTotal if strTotal > 0 else 0.0001
                     maxDamage = min(1, strAdv*sizeAdv)
                     dmg = random.uniform(0, maxDamage)
                     self.target.hit(dmg)
@@ -387,6 +465,7 @@ class creature(thing):
                     self.spawn()
                     self.energy -= .5
                     self.nest = False
-                self.getTarget(True)
+
+            self.target = None
 
 
