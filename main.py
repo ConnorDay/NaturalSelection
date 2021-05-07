@@ -153,7 +153,7 @@ running = True
 world = World(WINDOW_WIDTH, WINDOW_HEIGHT)
 for _ in range(10):
     world.add_thing(creature(world))
-for _ in range(20):
+for _ in range(10):
     world.add_thing(plant(world))
 
 drawThread = threading.Thread(target=world.draw, args=(display,))

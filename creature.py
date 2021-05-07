@@ -339,10 +339,17 @@ class creature(thing):
             #if the target has been reached
             if self.target.isFood():
                 self.energy += self.target.eat()
+                #check if the creature should try to nest
                 if random.random() < self.energy-1:
-                    self.nest = True
-                    self.target = None
-                    self.getTarget(capped=True)
+                    otherCreatures = 0
+                    for other in self.world.getVisible(self):
+                        if type(other) == creature and other != self:
+                            otherCreatures += 1
+                    #check if there are too many creatures around $self
+                    if otherCreatures <= self.getTrait('per') / 50:
+                        self.nest = True
+                        self.target = None
+                        self.getTarget(capped=True)
                 else:
                     self.getTarget()
             elif type(self.target) == creature:
