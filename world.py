@@ -89,7 +89,7 @@ class World:
     def event(self, *args):
         print(f'[{self.tick}]', *args)
         if self.file:
-            self.file.write(' '.join(args) + "\n")
+            self.file.write(f'[{self.tick}] {" ".join(args)}\n')
 
     def getVisible(self, obj):
         per = max(1,obj.getTrait("per")) ** 2
