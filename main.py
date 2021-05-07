@@ -9,16 +9,22 @@ from thing import plant
 from creature import creature
 from world import World
 import time
+import os
 
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
+
+DATA_DIR = "./data/"
+
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
 display = pygame.display.set_mode((WINDOW_WIDTH,WINDOW_HEIGHT))
 clock = pygame.time.Clock()
 
 def runSim():
     world = World(WINDOW_WIDTH, WINDOW_HEIGHT)
-    f = open(str(int(time.time())), "w")
+    f = open(DATA_DIR + str(int(time.time())), "w")
     world.file = f
 
     world.event("Simulation Started.")
