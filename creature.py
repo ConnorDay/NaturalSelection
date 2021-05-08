@@ -83,7 +83,7 @@ class creature(thing):
                             #modifies an atribute
                             atribute = random.choice(list(self.atr.keys()))
                             self.atr[atribute] += delta
-                            self.atr[atribute] = max(0,self.atr[atribute])
+                            self.atr[atribute] = max(0.001,self.atr[atribute])
                             if atribute != 'stom':
                                 self.atr[atribute] = min(1, self.atr[atribute])
                             #print("A " + atribute + " atribute has changed by: " + str(delta) + " for race " + str(self.race))
